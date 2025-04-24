@@ -1,0 +1,90 @@
+services:
+  fc_webclient:
+    image: fluxconfig/fluxconfig.webclient:${FC_TAG}
+    container_name: fc-webclient
+    restart: always
+    env_file:
+      - ./.env
+    environment:
+      VITE_FCM_BASE_URL: ${CFCM_BASE_URL}
+      VITE_FC_API_KEY: ${FC_API_KEY}
+    networks:
+      - fc-network
+    ports:
+      - ${FC_CLIENT_PORT}:80
+    depends_on:
+      - fc_management_api
+      - fc_storage_api
+
+  fc_management_api:
+    image: fluxconfig/fluxconfig.management:${FC_TAG}
+    container_name: fc-management
+    restart: always
+    env_file:
+      - ./.env
+    networks:
+      - fc-network
+    ports:
+      - ${MANAGEMENT_API_PORT}:7070
+    depends_on:
+      - fcm_database
+  
+  fcm_database:
+    image: fluxconfig/fluxconfig.postgres:${FC_TAG}
+    container_name: fc-postgres
+    restart: always
+    shm_size: 128mb
+    env_file:
+      - ./.env
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PSWD}
+      PG_FCM_APP_USER: ${PG_FCM_APP_USER}
+      PG_FCM_APP_PSWD: ${PG_FCM_APP_PSWD}
+      PG_MIGRATION_USER: ${PG_MIGRATION_USER}
+      PG_MIGRATION_PSWD: ${PG_MIGRATION_PSWD}
+    volumes:
+      - fcm-pg-data:/var/lib/postgresql/data
+    networks:
+      - fc-network
+
+  fc_storage_api:
+    image: fluxconfig/fluxconfig.storage:${FC_TAG}
+    container_name: fc-storage
+    restart: always
+    env_file:
+      - ./.env
+    environment:
+      - DOTNET_GENERATE_ASPNET_CERTIFICATE=false
+    volumes:
+      - ${EXTERNAL_CERT_PATH}:/https/certs:ro
+    ports:
+      - ${STORAGE_API_PORT}:7077
+    networks:
+      - fc-network
+    depends_on:
+      - fcs_database
+  
+  fcs_database:
+    image: fluxconfig/fluxconfig.mongo:${FC_TAG}
+    container_name: fc-mongo
+    restart: always
+    volumes:
+      - fcs-mongo-data:/data/db
+    env_file:
+      - ./.env
+    environment:
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+    networks:
+      - fc-network
+
+
+volumes:
+  fcs-mongo-data:
+    driver: local
+  fcm-pg-data:
+
+networks:
+  fc-network:
+    driver: bridge
